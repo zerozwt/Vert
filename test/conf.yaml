@@ -1,0 +1,17 @@
+base:
+  log_level: 1
+  log_file: /tmp/vert/log
+sites:
+  www.ppp.com:
+    - port: 80
+      type: http
+      rules:
+        - /:
+          - "set-header Host www.baidu.com"
+          - "proxy https://www.baidu.com"
+  www.qqq.com:
+    - port: 80
+      type: http
+      rules:
+        - /:
+          - "wwwroot /tmp/vert"

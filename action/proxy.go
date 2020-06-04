@@ -41,10 +41,16 @@ func proxy(params []string, underlying http.Handler) (http.Handler, error) {
 }
 
 func proxyNormal(param string) (http.Handler, error) {
+	v, err := convertActionParam(param)
+	if err != nil {
+		return nil, err
+	}
+
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		upstream_req, err := http.NewRequest(req.Method, param, req.Body)
+		upstream_addr := v.Parse(req)
+		upstream_req, err := http.NewRequest(req.Method, upstream_addr, req.Body)
 		if err != nil {
-			ERROR_LOG("create upstream request (%s) failed: %v", param, err)
+			ERROR_LOG("create upstream request (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)
 			return
 		}
@@ -52,7 +58,7 @@ func proxyNormal(param string) (http.Handler, error) {
 
 		upstream_rsp, err := http.DefaultClient.Do(upstream_req)
 		if err != nil {
-			ERROR_LOG("upstream request (%s) failed: %v", param, err)
+			ERROR_LOG("upstream request (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)
 			return
 		}
@@ -70,11 +76,17 @@ func proxyNormal(param string) (http.Handler, error) {
 }
 
 func proxyWebsocket(param string) (http.Handler, error) {
+	v, err := convertActionParam(param)
+	if err != nil {
+		return nil, err
+	}
+
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
+		upstream_addr := v.Parse(req)
 		dailer := &websocket.Dialer{}
-		up_conn, _, err := dailer.Dial(param, req.Header.Clone())
+		up_conn, _, err := dailer.Dial(upstream_addr, req.Header.Clone())
 		if err != nil {
-			ERROR_LOG("create upstream websocket (%s) failed: %v", param, err)
+			ERROR_LOG("create upstream websocket (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)
 			return
 		}
@@ -82,7 +94,7 @@ func proxyWebsocket(param string) (http.Handler, error) {
 
 		conn, err := upgrader.Upgrade(rsp, req, nil)
 		if err != nil {
-			ERROR_LOG("upgrade to websocket (%s) failed: %v", param, err)
+			ERROR_LOG("upgrade to websocket (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)
 			return
 		}

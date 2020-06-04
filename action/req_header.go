@@ -15,8 +15,13 @@ func set_header(params []string, underlying http.Handler) (http.Handler, error) 
 		return nil, errors.New("set-header params count invalid")
 	}
 
+	v, err := convertActionParam(params[1])
+	if err != nil {
+		return nil, err
+	}
+
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		req.Header.Set(params[0], params[1])
+		req.Header.Set(params[0], v.Parse(req))
 		underlying.ServeHTTP(rsp, req)
 	}), nil
 }

@@ -44,6 +44,7 @@ func (self *testHandler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 	rsp_header.Add("Set-Cookie", "mur=kmr; Domain=yjsnpi.com; Secure; HttpOnly")
 	rsp_header.Add("Set-Cookie", "szk=yjsnpi; Domain=yjsnpi.com; Secure; HttpOnly")
 	rsp_header.Add("Header-To-Delete", "xxxxxxxx")
+	rsp_header.Add("Content-Type", "text/html")
 
 	for _, header_modifier := range self.mod_rsp_header {
 		rsp_header = header_modifier.ModifyHeader(req, rsp_header)

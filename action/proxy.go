@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -112,8 +113,10 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 		if err != nil {
 			panic(err)
 		}
-		for _, content_modifier := range self.mod_rsp_content {
-			content = content_modifier.ModifyContent(upstream_req, content)
+		if isTextContentType(upstream_rsp.Header.Get("Content-Type")) {
+			for _, content_modifier := range self.mod_rsp_content {
+				content = content_modifier.ModifyContent(upstream_req, content)
+			}
 		}
 		rsp.Header().Set("Content-Length", fmt.Sprint(len(content)))
 		rsp.Write(content)
@@ -173,4 +176,26 @@ func proxyWebsocket(param string) (http.Handler, error) {
 		<-ch
 		<-ch
 	}), nil
+}
+
+var ctAppText map[string]bool = map[string]bool{
+	"application/atom+xml":   true,
+	"application/ecmascript": true,
+	"application/json":       true,
+	"application/javascript": true,
+	"application/rss+xml":    true,
+	"application/soap+xml":   true,
+	"application/xhtml+xml":  true,
+	"application/xml":        true,
+}
+
+func isTextContentType(content_type string) bool {
+	if len(content_type) == 0 {
+		return true
+	}
+	if strings.HasPrefix(content_type, "text/") {
+		return true
+	}
+	_, ok := ctAppText[strings.Split(content_type, ";")[0]]
+	return ok
 }

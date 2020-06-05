@@ -138,6 +138,11 @@ func TestContentModify(t *testing.T) {
 		}
 	}
 
+	if len(rsp.header.Values("Set-Cookie")) != 2 {
+		t.Errorf("Set rsp cookie failed: cookies count changed: %v", rsp.header.Values("Set-Cookie"))
+		return
+	}
+
 	if tmp := rsp.header.Get("Content-Length"); tmp != expect_length {
 		t.Errorf("Content length is not expect(%s): %s", expect_length, tmp)
 		return

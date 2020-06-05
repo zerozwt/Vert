@@ -2,7 +2,9 @@ package action
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -46,33 +48,76 @@ func proxyNormal(param string) (http.Handler, error) {
 		return nil, err
 	}
 
-	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		upstream_addr := v.Parse(req)
-		upstream_req, err := http.NewRequest(req.Method, upstream_addr, req.Body)
+	return &reverseProxy{
+		target_addr:     v,
+		mod_rsp_header:  make([]rspHeaderModifier, 0),
+		mod_rsp_content: make([]rspContentModifier, 0),
+	}, nil
+}
+
+type reverseProxy struct {
+	target_addr     Variable
+	mod_rsp_header  []rspHeaderModifier
+	mod_rsp_content []rspContentModifier
+}
+
+func (self *reverseProxy) AddRspHeaderModifier(item rspHeaderModifier) {
+	self.mod_rsp_header = append(self.mod_rsp_header, item)
+}
+
+func (self *reverseProxy) AddRspContentModifier(item rspContentModifier) {
+	self.mod_rsp_content = append(self.mod_rsp_content, item)
+}
+
+func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
+	upstream_addr := self.target_addr.Parse(req)
+
+	upstream_req, err := http.NewRequest(req.Method, upstream_addr, req.Body)
+	if err != nil {
+		ERROR_LOG("create upstream request (%s) failed: %v", upstream_addr, err)
+		http.Error(rsp, err.Error(), 502)
+		return
+	}
+	upstream_req.Header = req.Header.Clone()
+
+	//if there is any content modifier, Accept-Encoding should be deleted from request's header
+	if len(self.mod_rsp_content) > 0 {
+		upstream_req.Header.Del("Accept-Encoding")
+	}
+
+	upstream_rsp, err := http.DefaultClient.Do(upstream_req)
+	if err != nil {
+		ERROR_LOG("upstream request (%s) failed: %v", upstream_addr, err)
+		http.Error(rsp, err.Error(), 502)
+		return
+	}
+
+	for _, header_modifier := range self.mod_rsp_header {
+		upstream_rsp.Header = header_modifier.ModifyHeader(upstream_req, upstream_rsp.Header)
+	}
+
+	rsp.WriteHeader(upstream_rsp.StatusCode)
+	for key, value_list := range upstream_rsp.Header {
+		for _, value := range value_list {
+			rsp.Header().Add(key, value)
+		}
+	}
+	defer upstream_rsp.Body.Close()
+
+	if len(self.mod_rsp_content) == 0 {
+		buf := make([]byte, 4096)
+		io.CopyBuffer(rsp, upstream_rsp.Body, buf)
+	} else {
+		content, err := ioutil.ReadAll(upstream_rsp.Body)
 		if err != nil {
-			ERROR_LOG("create upstream request (%s) failed: %v", upstream_addr, err)
-			http.Error(rsp, err.Error(), 502)
-			return
+			panic(err)
 		}
-		upstream_req.Header = req.Header.Clone()
-
-		upstream_rsp, err := http.DefaultClient.Do(upstream_req)
-		if err != nil {
-			ERROR_LOG("upstream request (%s) failed: %v", upstream_addr, err)
-			http.Error(rsp, err.Error(), 502)
-			return
+		for _, content_modifier := range self.mod_rsp_content {
+			content = content_modifier.ModifyContent(upstream_req, content)
 		}
-
-		rsp.WriteHeader(upstream_rsp.StatusCode)
-		for key, value_list := range upstream_rsp.Header {
-			for _, value := range value_list {
-				rsp.Header().Add(key, value)
-			}
-		}
-		defer upstream_rsp.Body.Close()
-
-		io.Copy(rsp, upstream_rsp.Body)
-	}), nil
+		rsp.Header().Set("Content-Length", fmt.Sprint(len(content)))
+		rsp.Write(content)
+	}
 }
 
 func proxyWebsocket(param string) (http.Handler, error) {

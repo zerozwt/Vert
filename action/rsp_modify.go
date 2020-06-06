@@ -105,14 +105,23 @@ func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.
 	for _, cookie := range orig_cookies {
 		segs := strings.Split(cookie, "; ")
 		domain_idx := -1
+		lowercase := false
 		for idx, seg := range segs {
 			if seg == "Domain="+self.upstream_domain {
 				domain_idx = idx
 				break
+			} else if seg == "domain="+self.upstream_domain {
+				domain_idx = idx
+				lowercase = true
+				break
 			}
 		}
 		if domain_idx >= 0 {
-			segs[domain_idx] = "Domain=" + self.this_domain
+			if !lowercase {
+				segs[domain_idx] = "Domain=" + self.this_domain
+			} else {
+				segs[domain_idx] = "domain=" + self.this_domain
+			}
 		}
 		header.Add(set_cookie, strings.Join(segs, "; "))
 	}

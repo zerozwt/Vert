@@ -108,6 +108,10 @@ func getOCSP(name string, cert *tls.Certificate) ([]byte, error) {
 		return cache, nil
 	}
 
+	if cert.Leaf == nil {
+		return nil, errors.New("auto cert not totally prepared")
+	}
+
 	x509Cert := cert.Leaf
 	ocspServer := x509Cert.OCSPServer[0]
 	x509Issuer, err := x509.ParseCertificate(cert.Certificate[1])

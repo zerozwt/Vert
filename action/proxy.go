@@ -82,6 +82,7 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 		return
 	}
 	upstream_req.Header = req.Header.Clone()
+	upstream_req.Header.Set("Host", upstream_req.URL.Host)
 
 	//if there is any content modifier, Accept-Encoding should be deleted from request's header
 	if len(self.mod_rsp_content) > 0 {
@@ -96,10 +97,9 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 	}
 
 	for _, header_modifier := range self.mod_rsp_header {
-		upstream_rsp.Header = header_modifier.ModifyHeader(upstream_req, upstream_rsp.Header)
+		upstream_rsp.Header = header_modifier.ModifyHeader(req, upstream_rsp.Header)
 	}
 
-	rsp.WriteHeader(upstream_rsp.StatusCode)
 	for key, value_list := range upstream_rsp.Header {
 		for _, value := range value_list {
 			rsp.Header().Add(key, value)
@@ -109,6 +109,7 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 
 	if len(self.mod_rsp_content) == 0 {
 		buf := make([]byte, 4096)
+		rsp.WriteHeader(upstream_rsp.StatusCode)
 		io.CopyBuffer(rsp, upstream_rsp.Body, buf)
 	} else {
 		content, err := ioutil.ReadAll(upstream_rsp.Body)
@@ -117,7 +118,7 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 		}
 		if isTextContentType(upstream_rsp.Header.Get("Content-Type")) {
 			for _, content_modifier := range self.mod_rsp_content {
-				content = content_modifier.ModifyContent(upstream_req, content)
+				content = content_modifier.ModifyContent(req, content)
 			}
 			if strings.Index(req.Header.Get("Accept-Encoding"), "gzip") >= 0 {
 				rsp.Header().Set("Content-Encoding", "gzip")
@@ -129,6 +130,7 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 			}
 		}
 		rsp.Header().Set("Content-Length", fmt.Sprint(len(content)))
+		rsp.WriteHeader(upstream_rsp.StatusCode)
 		rsp.Write(content)
 	}
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -63,6 +65,48 @@ func loadConf() error {
 	if n, ok := log_level[gConf.Base.LogLevel]; ok {
 		gConf.Base.iLogLevel = n
 	}
+
+	//check site conf
+	sites := make(map[string][]SiteConf)
+	for domain, conf_list := range gConf.Sites {
+		tmp := make([]SiteConf, 0)
+		for _, conf := range conf_list {
+			site_type := conf.Type
+			port := conf.Port
+			if site_type == "" {
+				if port == 80 {
+					site_type = "http"
+				} else if port == 443 {
+					site_type = "https"
+				} else {
+					return errors.New("Cannot automatically determine type of " + domain + ":" + fmt.Sprint(port))
+				}
+			}
+			if port == 0 {
+				if site_type == "http" {
+					port = 80
+				} else if site_type == "https" {
+					port = 443
+				} else {
+					return errors.New("Cannot automatically determine port of " + domain)
+				}
+			}
+			if port < 1 || port > 65535 {
+				return errors.New("Invalid port " + fmt.Sprint(port) + " of " + domain)
+			}
+
+			tmp = append(tmp, SiteConf{
+				Type:     site_type,
+				Port:     port,
+				AutoCert: conf.AutoCert,
+				SSLKey:   conf.SSLKey,
+				SSLCert:  conf.SSLCert,
+				Rules:    conf.Rules,
+			})
+		}
+		sites[domain] = tmp
+	}
+	gConf.Sites = sites
 
 	return nil
 }

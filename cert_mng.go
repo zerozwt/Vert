@@ -31,11 +31,20 @@ type ocspManager struct {
 	cache map[string]ocspInfo
 }
 
+type staticCertManager struct {
+	lock  sync.Mutex
+	cache map[[2]string]*tls.Certificate // key: [cert_file, key_file]
+}
+
 var gCertInfo map[string]certInfo = make(map[string]certInfo)
 var gCertManager *autocert.Manager
 
 var gOCSPManager *ocspManager = &ocspManager{
 	cache: make(map[string]ocspInfo),
+}
+
+var gStaticCertManager *staticCertManager = &staticCertManager{
+	cache: make(map[[2]string]*tls.Certificate),
 }
 
 func initCertManager() {
@@ -70,12 +79,12 @@ func getCert(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	}
 
 	if !info.AutoCert {
-		ret, err := tls.LoadX509KeyPair(info.SSLCert, info.SSLKey)
+		ret, err := gStaticCertManager.Get(info.SSLCert, info.SSLKey)
 		if err != nil {
 			ERROR_LOG("Load cert from file for %s failed: %v", name, err)
 			return nil, err
 		}
-		return &ret, nil
+		return ret, nil
 	}
 
 	cert, err := gCertManager.GetCertificate(hello)
@@ -168,4 +177,36 @@ func (self *ocspManager) Set(name string, data []byte, expire time.Time) {
 		data:   data,
 		expire: expire,
 	}
+}
+
+func (self *staticCertManager) Get(certFile, keyFile string) (*tls.Certificate, error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	cache_key := [2]string{certFile, keyFile}
+	cache, ok := self.cache[cache_key]
+
+	if ok {
+		tmNow := time.Now()
+		if tmNow.Before(cache.Leaf.NotBefore) || tmNow.Add(time.Hour*24).After(cache.Leaf.NotAfter) {
+			ok = false
+		}
+	}
+
+	if ok {
+		return cache, nil
+	}
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+
+	self.cache[cache_key] = &cert
+	return &cert, nil
 }

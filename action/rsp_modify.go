@@ -88,8 +88,8 @@ func del_rsp_header(params []string, underlying http.Handler) (http.Handler, err
 //-----------------------------------------------------------------------------
 
 type rspCookie struct {
-	this_domain     string
-	upstream_domain string
+	this_domain     Variable
+	upstream_domain Variable
 }
 
 func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.Header {
@@ -99,6 +99,9 @@ func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.
 		return header
 	}
 
+	this_domain := self.this_domain.Parse(req)
+	upstream_domain := self.upstream_domain.Parse(req)
+
 	orig_cookies := header[set_cookie]
 	delete(header, set_cookie)
 
@@ -107,10 +110,10 @@ func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.
 		domain_idx := -1
 		lowercase := false
 		for idx, seg := range segs {
-			if seg == "Domain="+self.upstream_domain {
+			if seg == "Domain="+upstream_domain {
 				domain_idx = idx
 				break
-			} else if seg == "domain="+self.upstream_domain {
+			} else if seg == "domain="+upstream_domain {
 				domain_idx = idx
 				lowercase = true
 				break
@@ -118,9 +121,9 @@ func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.
 		}
 		if domain_idx >= 0 {
 			if !lowercase {
-				segs[domain_idx] = "Domain=" + self.this_domain
+				segs[domain_idx] = "Domain=" + this_domain
 			} else {
-				segs[domain_idx] = "domain=" + self.this_domain
+				segs[domain_idx] = "domain=" + this_domain
 			}
 		}
 		header.Add(set_cookie, strings.Join(segs, "; "))
@@ -135,7 +138,16 @@ func proxy_cookie(params []string, underlying http.Handler) (http.Handler, error
 	}
 
 	if tmp, ok := underlying.(rspHeaderMutable); ok {
-		tmp.AddRspHeaderModifier(&rspCookie{this_domain: params[0], upstream_domain: params[1]})
+		v_this, err := convertActionParam(params[0])
+		if err != nil {
+			return nil, err
+		}
+
+		v_up, err := convertActionParam(params[1])
+		if err != nil {
+			return nil, err
+		}
+		tmp.AddRspHeaderModifier(&rspCookie{this_domain: v_this, upstream_domain: v_up})
 		return underlying, nil
 	}
 

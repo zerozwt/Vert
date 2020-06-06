@@ -12,6 +12,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const VERT_CONTEXT_KEY string = "vert"
+
 type Variable interface {
 	Parse(*http.Request) string
 }
@@ -52,7 +54,14 @@ func (self vConst) Parse(*http.Request) string { return string(self) }
 
 type vHost struct{}
 
-func (self vHost) Parse(req *http.Request) string { return req.Host }
+func (self vHost) Parse(req *http.Request) string {
+	if vert_env, ok := req.Context().Value(VERT_CONTEXT_KEY).(map[string]string); ok {
+		if host, ok := vert_env["HOST"]; ok {
+			return host
+		}
+	}
+	return req.Host
+}
 
 //-----------------------------------------------------------------------------
 

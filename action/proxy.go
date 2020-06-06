@@ -119,7 +119,7 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 			for _, content_modifier := range self.mod_rsp_content {
 				content = content_modifier.ModifyContent(req, content)
 			}
-			if strings.Index(req.Header.Get("Accept-Encoding"), "gzip") >= 0 {
+			if acceptGZip(req) {
 				rsp.Header().Set("Content-Encoding", "gzip")
 				buf := bytes.NewBuffer(nil)
 				zw := gzip.NewWriter(buf)
@@ -216,11 +216,15 @@ var ctAppText map[string]bool = map[string]bool{
 
 func isTextContentType(content_type string) bool {
 	if len(content_type) == 0 {
-		return true
+		return false
 	}
 	if strings.HasPrefix(content_type, "text/") {
 		return true
 	}
 	_, ok := ctAppText[strings.Split(content_type, ";")[0]]
 	return ok
+}
+
+func acceptGZip(req *http.Request) bool {
+	return strings.Index(req.Header.Get("Accept-Encoding"), "gzip") >= 0
 }

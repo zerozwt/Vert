@@ -1,9 +1,12 @@
 package action
 
 import (
+	"compress/gzip"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 )
 
 func init() {
@@ -43,5 +46,64 @@ func (self *safeWWWRoot) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	if acceptGZip(req) {
+		tmp := &gzipRspWriter{
+			underlying: rsp,
+			writer:     noopWriteCloser{rsp},
+		}
+		defer tmp.Close()
+		self.fs.ServeHTTP(tmp, req)
+		return
+	}
+
 	self.fs.ServeHTTP(rsp, req)
 }
+
+type gzipRspWriter struct {
+	underlying http.ResponseWriter
+
+	writer io.WriteCloser
+	once   int32
+}
+
+func (self *gzipRspWriter) Header() http.Header {
+	return self.underlying.Header()
+}
+
+func (self *gzipRspWriter) WriteHeader(statusCode int) {
+	if !atomic.CompareAndSwapInt32(&(self.once), 0, 1) {
+		return
+	}
+
+	defer self.underlying.WriteHeader(statusCode)
+
+	if len(self.underlying.Header().Values("Content-Encoding")) > 0 {
+		// do not enable gzip if content encoding is set
+		return
+	}
+
+	if !isTextContentType(self.underlying.Header().Get("Content-Type")) {
+		// also do not enable gzip if content type is not text
+		return
+	}
+
+	self.underlying.Header().Set("Content-Encoding", "gzip")
+	self.underlying.Header().Del("Content-Length")
+
+	self.writer = gzip.NewWriter(self.underlying)
+}
+
+func (self *gzipRspWriter) Write(buf []byte) (int, error) {
+	self.WriteHeader(200)
+	return self.writer.Write(buf)
+}
+
+func (self *gzipRspWriter) Close() error {
+	return self.writer.Close()
+}
+
+type noopWriteCloser struct {
+	io.Writer
+}
+
+func (self noopWriteCloser) Close() error { return nil }

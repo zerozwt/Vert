@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zerozwt/Vert/env"
 	"gopkg.in/yaml.v2"
 )
 
@@ -32,7 +33,8 @@ type Conf struct {
 		TlsEmail  string `yaml:"tls_email"`
 		CertCache string `yaml:"cert_cache"`
 	} `yaml:"base"`
-	Sites map[string][]SiteConf `yaml:"sites"`
+	Upstream map[string][]string   `yaml:"upstream"`
+	Sites    map[string][]SiteConf `yaml:"sites"`
 }
 
 var gConf Conf
@@ -64,6 +66,10 @@ func loadConf() error {
 
 	if n, ok := log_level[gConf.Base.LogLevel]; ok {
 		gConf.Base.iLogLevel = n
+	}
+
+	if err = env.AddUpsteam(gConf.Upstream); err != nil {
+		return err
 	}
 
 	//check site conf

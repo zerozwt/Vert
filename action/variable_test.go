@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/zerozwt/Vert/env"
 )
 
 func TestVariable_PATH(t *testing.T) {
@@ -99,5 +101,38 @@ func TestVariable_Other(t *testing.T) {
 
 	if tmp := v.Parse(&req); tmp != check {
 		t.Errorf("'others' convert not as expected: expected=%s actual=%s", check, tmp)
+	}
+}
+
+func TestVariableHost(t *testing.T) {
+	target := `{host}`
+	req := env.WrapRequest(&http.Request{Host: "www.yjsnpi.com"})
+
+	v, err := convertActionParam(target)
+	if err != nil {
+		t.Error("build variable failed:", err)
+		return
+	}
+
+	if tmp := v.Parse(req); tmp != "www.yjsnpi.com" {
+		t.Errorf("'host' convert not as expected: %s", tmp)
+	}
+}
+
+func TestVariableUpstream(t *testing.T) {
+	target := `{up:yjsnpi}`
+
+	if err := env.AddUpsteam(map[string][]string{"yjsnpi": {"www.yjsnpi.com"}}); err != nil {
+		t.Error(err)
+	}
+
+	v, err := convertActionParam(target)
+	if err != nil {
+		t.Error("build variable failed:", err)
+		return
+	}
+
+	if tmp := v.Parse(nil); tmp != "www.yjsnpi.com" {
+		t.Errorf("'up' convert not as expected: %s", tmp)
 	}
 }

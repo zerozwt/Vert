@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,9 +12,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/zerozwt/Vert/action"
+	"github.com/zerozwt/Vert/env"
 )
-
-const VERT_CONTEXT_KEY string = "vert"
 
 func waitSignal(done chan bool) {
 	ch_sig := make(chan os.Signal, 1)
@@ -102,13 +100,7 @@ func buildServerSlots(sites map[string][]SiteConf) (map[int]*serverSlot, error) 
 func logHandler(underlying http.Handler) http.Handler {
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
 		INFO_LOG("ACCESS %s %s %s %s %s", req.RemoteAddr, req.Method, req.Host, req.URL.String(), req.Proto)
-
-		vert_env := map[string]string{
-			"HOST": req.Host,
-		}
-
-		ctx := context.WithValue(req.Context(), VERT_CONTEXT_KEY, vert_env)
-		underlying.ServeHTTP(rsp, req.WithContext(ctx))
+		underlying.ServeHTTP(rsp, env.WrapRequest(req))
 	})
 }
 

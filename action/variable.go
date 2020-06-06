@@ -10,9 +10,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/zerozwt/Vert/env"
 )
-
-const VERT_CONTEXT_KEY string = "vert"
 
 type Variable interface {
 	Parse(*http.Request) string
@@ -55,10 +54,8 @@ func (self vConst) Parse(*http.Request) string { return string(self) }
 type vHost struct{}
 
 func (self vHost) Parse(req *http.Request) string {
-	if vert_env, ok := req.Context().Value(VERT_CONTEXT_KEY).(map[string]string); ok {
-		if host, ok := vert_env["HOST"]; ok {
-			return host
-		}
+	if ret := env.Host(req); len(ret) > 0 {
+		return ret
 	}
 	return req.Host
 }
@@ -247,6 +244,14 @@ func (self vReVar) Parse(req *http.Request) string {
 
 //-----------------------------------------------------------------------------
 
+type vUpstream string
+
+func (self vUpstream) Parse(req *http.Request) string {
+	return env.UpstreamAddr(string(self), req)
+}
+
+//-----------------------------------------------------------------------------
+
 var matchVar *regexp.Regexp = regexp.MustCompile(`\{(%?)([a-z_\^]+)(:?)([^\}]*)\}`)
 
 var matchKey *regexp.Regexp = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
@@ -422,6 +427,18 @@ func buildVar(cmd_name string, has_param bool, param_raw string) (Variable, erro
 		}
 
 		return nil, errors.New("malformat 're' variable")
+	}
+
+	if cmd_name == "up" {
+		if !has_param || len(param_raw) == 0 {
+			return nil, errors.New("malformat 'up' variable")
+		}
+
+		if matchKey.MatchString(param_raw) {
+			return vUpstream(param_raw), nil
+		}
+
+		return nil, errors.New("malformat 'up' variable")
 	}
 
 	return nil, errors.New("Unsupported variable cmd: " + cmd_name)

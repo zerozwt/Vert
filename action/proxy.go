@@ -141,10 +141,24 @@ func proxyWebsocket(param string) (http.Handler, error) {
 		return nil, err
 	}
 
+	ws_headers := []string{
+		"Upgrade",
+		"Connection",
+		"Sec-WebSocket-Key",
+		"Sec-Websocket-Version",
+		"Sec-Websocket-Extensions",
+	}
+
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
 		upstream_addr := v.Parse(req)
 		dailer := &websocket.Dialer{}
-		up_conn, _, err := dailer.Dial(upstream_addr, req.Header.Clone())
+		req_header := req.Header.Clone()
+
+		for _, item := range ws_headers {
+			req_header.Del(item)
+		}
+
+		up_conn, _, err := dailer.Dial(upstream_addr, req_header)
 		if err != nil {
 			ERROR_LOG("create upstream websocket (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)

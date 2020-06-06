@@ -29,11 +29,11 @@ type testHandler struct {
 }
 
 func (self *testHandler) AddRspHeaderModifier(item rspHeaderModifier) {
-	self.mod_rsp_header = append(self.mod_rsp_header, item)
+	self.mod_rsp_header = append([]rspHeaderModifier{item}, self.mod_rsp_header...)
 }
 
 func (self *testHandler) AddRspContentModifier(item rspContentModifier) {
-	self.mod_rsp_content = append(self.mod_rsp_content, item)
+	self.mod_rsp_content = append([]rspContentModifier{item}, self.mod_rsp_content...)
 }
 
 func (self *testHandler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {

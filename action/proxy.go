@@ -1,6 +1,8 @@
 package action
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -63,11 +65,11 @@ type reverseProxy struct {
 }
 
 func (self *reverseProxy) AddRspHeaderModifier(item rspHeaderModifier) {
-	self.mod_rsp_header = append(self.mod_rsp_header, item)
+	self.mod_rsp_header = append([]rspHeaderModifier{item}, self.mod_rsp_header...)
 }
 
 func (self *reverseProxy) AddRspContentModifier(item rspContentModifier) {
-	self.mod_rsp_content = append(self.mod_rsp_content, item)
+	self.mod_rsp_content = append([]rspContentModifier{item}, self.mod_rsp_content...)
 }
 
 func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
@@ -116,6 +118,14 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 		if isTextContentType(upstream_rsp.Header.Get("Content-Type")) {
 			for _, content_modifier := range self.mod_rsp_content {
 				content = content_modifier.ModifyContent(upstream_req, content)
+			}
+			if strings.Index(req.Header.Get("Accept-Encoding"), "gzip") >= 0 {
+				rsp.Header().Set("Content-Encoding", "gzip")
+				buf := bytes.NewBuffer(nil)
+				zw := gzip.NewWriter(buf)
+				zw.Write(content)
+				zw.Close()
+				content = buf.Bytes()
 			}
 		}
 		rsp.Header().Set("Content-Length", fmt.Sprint(len(content)))

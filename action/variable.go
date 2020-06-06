@@ -50,6 +50,12 @@ func (self vConst) Parse(*http.Request) string { return string(self) }
 
 //-----------------------------------------------------------------------------
 
+type vHost struct{}
+
+func (self vHost) Parse(req *http.Request) string { return req.Host }
+
+//-----------------------------------------------------------------------------
+
 type vPath struct {
 	from int
 	to   int
@@ -321,6 +327,13 @@ func buildVar(cmd_name string, has_param bool, param_raw string) (Variable, erro
 		ret := &vPathSeg{idx: -1}
 		ret.from, ret.to, err = buildFromTo(param_raw)
 		return ret, err
+	}
+
+	if cmd_name == "host" {
+		if has_param || len(param_raw) > 0 {
+			return nil, errors.New("'host' variable cannot have ':' or params")
+		}
+		return vHost{}, nil
 	}
 
 	if cmd_name == "has_query" {

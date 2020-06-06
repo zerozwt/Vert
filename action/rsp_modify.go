@@ -95,15 +95,15 @@ type rspCookie struct {
 func (self *rspCookie) ModifyHeader(req *http.Request, header http.Header) http.Header {
 	set_cookie := textproto.CanonicalMIMEHeaderKey("Set-Cookie")
 
-	if _, ok := header[set_cookie]; !ok {
+	if len(header.Values(set_cookie)) == 0 {
 		return header
 	}
 
 	this_domain := self.this_domain.Parse(req)
 	upstream_domain := self.upstream_domain.Parse(req)
 
-	orig_cookies := header[set_cookie]
-	delete(header, set_cookie)
+	orig_cookies := header.Values(set_cookie)
+	header.Del(set_cookie)
 
 	for _, cookie := range orig_cookies {
 		segs := strings.Split(cookie, "; ")

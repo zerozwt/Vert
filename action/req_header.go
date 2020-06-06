@@ -50,7 +50,7 @@ func limit_referer(params []string, underlying http.Handler) (http.Handler, erro
 	}
 
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
-		if req.URL.Path != "/" && !strings.HasPrefix(req.Header.Get("Host"), v.Parse(req)) {
+		if req.URL.Path != "/" && !strings.HasPrefix(req.Header.Get("Referer"), v.Parse(req)) {
 			http.Error(rsp, "Forbidden", 403)
 			return
 		}

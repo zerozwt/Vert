@@ -82,7 +82,6 @@ func (self *reverseProxy) ServeHTTP(rsp http.ResponseWriter, req *http.Request) 
 		return
 	}
 	upstream_req.Header = req.Header.Clone()
-	upstream_req.Header.Set("Host", upstream_req.URL.Host)
 
 	//if there is any content modifier, Accept-Encoding should be deleted from request's header
 	if len(self.mod_rsp_content) > 0 {

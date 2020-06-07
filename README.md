@@ -42,7 +42,7 @@
             - /3/:
               - 'set-header Host backend3.com'
               - 'proxy-cookie {host} .backend3.com'
-              - 'proxy wss://backend3.com/{seg[1:]}{has_query}{query}{has_fragment}{fragment}'
+              - 'proxy https://backend3.com/{seg[1:]}{has_query}{query}{has_fragment}{fragment}'
             - /:
               - wwwroot /path/to/www/html
       www.site2.com:
@@ -224,6 +224,10 @@ N与M均可省略，N省略时表示从开头开始，M省略时表示到结束�
 ### `{fragment}`
 
 原始请求末尾的完整fragment，不包含`#`前缀。
+
+### `{fullpath}`
+
+相当于`{path}{has_query}{query}{has_fragment}{fragment}`
 
 ### `{up:XXX}`
 

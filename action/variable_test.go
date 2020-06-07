@@ -107,6 +107,7 @@ func TestVariable_Other(t *testing.T) {
 func TestVariableHost(t *testing.T) {
 	target := `{host}`
 	req := env.WrapRequest(&http.Request{Host: "www.yjsnpi.com"})
+	req.Host = ""
 
 	v, err := convertActionParam(target)
 	if err != nil {
@@ -134,5 +135,26 @@ func TestVariableUpstream(t *testing.T) {
 
 	if tmp := v.Parse(nil); tmp != "www.yjsnpi.com" {
 		t.Errorf("'up' convert not as expected: %s", tmp)
+	}
+}
+
+func TestVariableFullPath(t *testing.T) {
+	target := `{fullpath}`
+	path := `/hello/world?a=1#yjsnpi`
+
+	uri, err := url.Parse(path)
+	if err != nil {
+		t.Error(err)
+	}
+	req := http.Request{URL: uri}
+
+	v, err := convertActionParam(target)
+	if err != nil {
+		t.Error("build variable failed:", err)
+		return
+	}
+
+	if tmp := v.Parse(&req); tmp != path {
+		t.Errorf("'query' convert not as expected: expected=%s actual=%s", path, tmp)
 	}
 }

@@ -324,6 +324,19 @@ func buildVar(cmd_name string, has_param bool, param_raw string) (Variable, erro
 		return ret, err
 	}
 
+	if cmd_name == "fullpath" {
+		if has_param || len(param_raw) > 0 {
+			return nil, errors.New("'fullpath' variable cannot have ':' or params")
+		}
+		return &vChain{v_list: []Variable{
+			&vPath{-1, -1},
+			vHasQuery(false),
+			vQueryAll(false),
+			vHasFragment{},
+			vFragment{},
+		}}, nil
+	}
+
 	if cmd_name == "seg" {
 		if has_param {
 			return nil, errors.New("'seg' variable cannot have ':'")

@@ -1,0 +1,11 @@
+base:
+  log_level: debug
+  log_file: /tmp/vert/log
+  cert_cache: /usr/local/vert/certs
+sites:
+  www.example.com:
+    - port: 80
+      type: http
+      rules:
+        - /:
+          - "wwwroot /path/to/www/html"

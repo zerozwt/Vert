@@ -1,0 +1,12 @@
+[Unit]
+Description=Vert webserver
+After=syslog.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/vert/Vert --conf /usr/local/vert/conf.yaml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

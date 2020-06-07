@@ -148,16 +148,23 @@ func proxyWebsocket(param string) (http.Handler, error) {
 		"Sec-Websocket-Extensions",
 	}
 
+	ws_rsp_headers := []string{
+		"Upgrade",
+		"Connection",
+		"Sec-WebSocket-Accept",
+		"Sec-Websocket-Extensions",
+	}
+
 	return http.HandlerFunc(func(rsp http.ResponseWriter, req *http.Request) {
 		upstream_addr := v.Parse(req)
 		dailer := &websocket.Dialer{}
-		req_header := req.Header.Clone()
 
+		req_header := req.Header.Clone()
 		for _, item := range ws_headers {
 			req_header.Del(item)
 		}
 
-		up_conn, _, err := dailer.Dial(upstream_addr, req_header)
+		up_conn, up_rsp, err := dailer.Dial(upstream_addr, req_header)
 		if err != nil {
 			ERROR_LOG("create upstream websocket (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)
@@ -165,7 +172,12 @@ func proxyWebsocket(param string) (http.Handler, error) {
 		}
 		defer up_conn.Close()
 
-		conn, err := upgrader.Upgrade(rsp, req, nil)
+		up_rsp_header := up_rsp.Header.Clone()
+		for _, item := range ws_rsp_headers {
+			up_rsp_header.Del(item)
+		}
+
+		conn, err := upgrader.Upgrade(rsp, req, up_rsp_header)
 		if err != nil {
 			ERROR_LOG("upgrade to websocket (%s) failed: %v", upstream_addr, err)
 			http.Error(rsp, err.Error(), 502)

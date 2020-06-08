@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -29,20 +28,21 @@ func proxy(params []string, underlying http.Handler) (http.Handler, error) {
 		return nil, errors.New("proxy params count invalid")
 	}
 
-	uri, err := url.Parse(params[0])
-	if err != nil {
-		return nil, err
+	scheme_idx := strings.Index(params[0], "://")
+	if scheme_idx < 0 {
+		return nil, errors.New("Proxy target have no scheme")
 	}
+	scheme := params[0][:scheme_idx]
 
-	if uri.Scheme == "http" || uri.Scheme == "https" {
+	if scheme == "http" || scheme == "https" {
 		return proxyNormal(params[0])
 	}
 
-	if uri.Scheme == "ws" || uri.Scheme == "wss" {
+	if scheme == "ws" || scheme == "wss" {
 		return proxyWebsocket(params[0])
 	}
 
-	return nil, errors.New("invalid proxy scheme: " + uri.Scheme)
+	return nil, errors.New("invalid proxy scheme: " + scheme)
 }
 
 func proxyNormal(param string) (http.Handler, error) {
